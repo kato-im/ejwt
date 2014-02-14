@@ -1,2 +1,2 @@
-ejwt
-====
+Erlang JWT Library
+==================
