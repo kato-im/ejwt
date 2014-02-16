@@ -27,7 +27,7 @@ In Erlang shell:
     ejwt:parse_jwt(Token, Key).
 
 
-You should get back the original claims Jterm:
+You should get back the original claims Jterm, plus expiration claim:
 
     {[
         {<<"exp">>,1392607527},
