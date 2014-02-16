@@ -44,7 +44,7 @@ parse_jwt(Token, Key) ->
                                         invalid ->
                                             invalid;
                                         ClaimSetJterm ->
-                                            case (ej:get({<<"exp">>}, ClaimSetJterm) - lechat_utils:epoch()) of
+                                            case (ej:get({<<"exp">>}, ClaimSetJterm) - epoch()) of
                                                 DeltaSecs when DeltaSecs > 0 ->
                                                     ClaimSetJterm;
                                                 _ ->
@@ -85,7 +85,7 @@ jwt(Alg, ClaimSetJterm, ExpirationSeconds, Key) ->
 
 jwt_add_exp(ClaimSetJterm, ExpirationSeconds) ->
     {ClaimsSet} = ClaimSetJterm,
-    {[{<<"exp">>, lechat_utils:epoch() + ExpirationSeconds} | ClaimsSet]}.
+    {[{<<"exp">>, epoch() + ExpirationSeconds} | ClaimsSet]}.
 
 jwt_hs256_iss_sub(Iss, Sub, ExpirationSeconds, Key) ->
     jwt(<<"HS256">>, {[
@@ -104,3 +104,6 @@ jwt_header(Alg) ->
         {<<"alg">>, Alg},
         {<<"typ">>, <<"JWT">>}
     ]}.
+
+epoch() ->
+    calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(os:timestamp())) - 719528 * 24 * 3600.

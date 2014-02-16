@@ -1,13 +1,12 @@
 {application, ejwt,
  [
   {description, ""},
-  {vsn, "1"},
+  {vsn, git},
   {registered, []},
   {applications, [
                   kernel,
                   stdlib,
-                  lhttpc
+                  crypto
                  ]},
-  {mod, {ejwt_app, []}},
   {env, []}
  ]}.
