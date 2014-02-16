@@ -25,3 +25,12 @@ In Erlang shell:
 
     %% Parse JWT token
     ejwt:parse_jwt(Token, Key).
+
+
+You should get back the original claims Jterm:
+    {[
+        {<<"exp">>,1392607527},
+        {<<"user_id">>,<<"bob123">>},
+        {<<"user_name">>,<<"Bob">>}
+    ]}
+
