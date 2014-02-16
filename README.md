@@ -28,6 +28,7 @@ In Erlang shell:
 
 
 You should get back the original claims Jterm:
+
     {[
         {<<"exp">>,1392607527},
         {<<"user_id">>,<<"bob123">>},
