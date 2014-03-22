@@ -8,7 +8,7 @@
 -export([pre_parse_jwt/1]).
 -export([parse_jwt/2]).
 -export([parse_jwt_iss_sub/2]).
--export([jwt/4]).
+-export([jwt/3, jwt/4]).
 -export([jwt_hs256_iss_sub/4]).
 
 jiffy_decode_safe(Bin) ->
@@ -58,11 +58,16 @@ parse_jwt(Token, Key) ->
                                         invalid ->
                                             invalid;
                                         ClaimSetJterm ->
-                                            case (ej:get({<<"exp">>}, ClaimSetJterm) - epoch()) of
-                                                DeltaSecs when DeltaSecs > 0 ->
+                                            case Exp = ej:get({<<"exp">>}, ClaimSetJterm) of
+                                                undefined ->
                                                     ClaimSetJterm;
                                                 _ ->
-                                                    expired
+                                                    case Exp - epoch() of
+                                                        DeltaSecs when DeltaSecs > 0 ->
+                                                            ClaimSetJterm;
+                                                        _ ->
+                                                            expired
+                                                    end
                                             end
                                     end;
                                 _ ->
@@ -85,6 +90,18 @@ parse_jwt_iss_sub(Token, Key) ->
         ClaimSetJterm ->
             {ej:get({<<"iss">>}, ClaimSetJterm), ej:get({<<"sub">>}, ClaimSetJterm)}
     end.
+
+jwt(Alg, ClaimSetJterm, Key) ->
+  ClaimSet = base64url:encode(jiffy:encode(ClaimSetJterm)),
+  Header = base64url:encode(jiffy:encode(jwt_header(Alg))),
+  Payload = <<Header/binary, ".", ClaimSet/binary>>,
+  case jwt_sign(Alg, Payload, Key) of
+    alg_not_supported ->
+      alg_not_supported;
+    Signature ->
+      <<Payload/binary, ".", Signature/binary>>
+  end.
+
 
 jwt(Alg, ClaimSetJterm, ExpirationSeconds, Key) ->
     ClaimSet = base64url:encode(jiffy:encode(jwt_add_exp(ClaimSetJterm, ExpirationSeconds))),
