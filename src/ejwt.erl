@@ -5,6 +5,7 @@
 
 -module(ejwt).
 
+-export([pre_parse_jwt/1]).
 -export([parse_jwt/2]).
 -export([parse_jwt_iss_sub/2]).
 -export([jwt/4]).
@@ -23,6 +24,19 @@ jiffy_decode_safe(Bin) ->
                     Jterm;
                 false ->
                     invalid
+            end;
+        _ ->
+            invalid
+    end.
+
+pre_parse_jwt(Token) ->
+    case binary:split(Token, [<<".">>], [global]) of
+        [_, ClaimSet, _] ->
+            case jiffy_decode_safe(base64url:decode(ClaimSet)) of
+                invalid ->
+                    invalid;
+                ClaimSetJterm ->
+                    ClaimSetJterm
             end;
         _ ->
             invalid
