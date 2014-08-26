@@ -99,7 +99,17 @@ jwt(Alg, ClaimSetJterm, ExpirationSeconds, Key) ->
 
 jwt_add_exp(ClaimSetJterm, ExpirationSeconds) ->
     {ClaimsSet} = ClaimSetJterm,
-    {[{<<"exp">>, epoch() + ExpirationSeconds} | ClaimsSet]}.
+    Expiration = case ExpirationSeconds of
+        {hourly, ExpirationSeconds0} ->
+            Ts = epoch(),
+            (Ts - (Ts rem 3600)) + ExpirationSeconds0;
+        {daily, ExpirationSeconds0} ->
+            Ts = epoch(),
+            (Ts - (Ts rem (24*3600))) + ExpirationSeconds0;
+        _ ->
+            epoch() + ExpirationSeconds
+    end,        
+    {[{<<"exp">>, Expiration} | ClaimsSet]}.
 
 jwt_hs256_iss_sub(Iss, Sub, ExpirationSeconds, Key) ->
     jwt(<<"HS256">>, {[
