@@ -6,7 +6,10 @@
   {applications, [
                   kernel,
                   stdlib,
-                  crypto
+                  crypto,
+		  jiffy,
+		  base64url,
+		  ej
                  ]},
   {env, []}
  ]}.
