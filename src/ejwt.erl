@@ -8,7 +8,7 @@
 -export([pre_parse_jwt/1]).
 -export([parse_jwt/2]).
 -export([parse_jwt_iss_sub/2]).
--export([jwt/4]).
+-export([jwt/3, jwt/4]).
 -export([jwt_hs256_iss_sub/4]).
 
 jiffy_decode_safe(Bin) ->
@@ -30,51 +30,61 @@ jiffy_decode_safe(Bin) ->
     end.
 
 pre_parse_jwt(Token) ->
-    case binary:split(Token, [<<".">>], [global]) of
-        [_, ClaimSet, _] ->
-            case jiffy_decode_safe(base64url:decode(ClaimSet)) of
-                invalid ->
-                    invalid;
-                ClaimSetJterm ->
-                    ClaimSetJterm
-            end;
-        _ ->
+    case decode_jwt(split_jwt_token(Token)) of
+        {_HeaderJterm, ClaimSetJterm, _Signature} ->
+            ClaimSetJterm;
+        invalid ->
             invalid
     end.
 
 parse_jwt(Token, Key) ->
-    case binary:split(Token, [<<".">>], [global]) of
-        [Header, ClaimSet, Signature] ->
-            case jiffy_decode_safe(base64url:decode(Header)) of
-                invalid ->
-                    invalid;
-                HeaderJterm ->
-                    case {ej:get({<<"typ">>}, HeaderJterm), ej:get({<<"alg">>}, HeaderJterm)} of
-                        {<<"JWT">>, Alg} ->
-                            Payload = <<Header/binary, ".", ClaimSet/binary>>,
-                            case jwt_sign(Alg, Payload, Key) of
-                                Signature ->
-                                    case jiffy_decode_safe(base64url:decode(ClaimSet)) of
-                                        invalid ->
-                                            invalid;
-                                        ClaimSetJterm ->
-                                            case (ej:get({<<"exp">>}, ClaimSetJterm) - epoch()) of
-                                                DeltaSecs when DeltaSecs > 0 ->
-                                                    ClaimSetJterm;
-                                                _ ->
-                                                    expired
-                                            end
-                                    end;
-                                _ ->
-                                    invalid
-                            end;
-                        _ ->
-                            invalid
+    SplitToken = split_jwt_token(Token),
+    case decode_jwt(SplitToken) of
+        {HeaderJterm, ClaimSetJterm, Signature} ->
+            [Header, ClaimSet | _] = SplitToken,
+            Type = ej:get({<<"typ">>}, HeaderJterm),
+            Alg  = ej:get({<<"alg">>}, HeaderJterm),
+            case parse_jwt_check_sig(Type, Alg, Header, ClaimSet, Signature, Key) of
+                false -> invalid;
+                true ->
+                    case parse_jwt_has_expired(ClaimSetJterm) of
+                        true  -> expired;
+                        false -> ClaimSetJterm
                     end
             end;
-        _ ->
-            invalid
+        invalid -> invalid
     end.
+
+parse_jwt_has_expired(ClaimSetJterm) ->
+    Expiry = ej:get({<<"exp">>}, ClaimSetJterm, none),
+    case Expiry of
+        none ->
+            false;
+        _ ->
+            case (ej:get({<<"exp">>}, ClaimSetJterm) - epoch()) of
+                DeltaSecs when DeltaSecs > 0 ->
+                    false;
+                _ ->
+                    true
+            end
+    end.
+
+parse_jwt_check_sig(<<"JWT">>, Alg, Header, ClaimSet, Signature, Key) ->
+    Payload = <<Header/binary, ".", ClaimSet/binary>>,
+    jwt_sign(Alg, Payload, Key) =:= Signature.
+
+split_jwt_token(Token) ->
+    binary:split(Token, [<<".">>], [global]).
+
+decode_jwt([Header, ClaimSet, Signature]) ->
+    [HeaderJterm, ClaimSetJterm] =
+        Decoded = [jiffy_decode_safe(base64url:decode(X)) || X <- [Header, ClaimSet]],
+    case lists:any(fun(E) -> E =:= invalid end, Decoded) of
+        true  -> invalid;
+        false -> {HeaderJterm, ClaimSetJterm, Signature}
+    end;
+decode_jwt(_) ->
+    invalid.
 
 parse_jwt_iss_sub(Token, Key) ->
     case parse_jwt(Token, Key) of
@@ -85,6 +95,18 @@ parse_jwt_iss_sub(Token, Key) ->
         ClaimSetJterm ->
             {ej:get({<<"iss">>}, ClaimSetJterm), ej:get({<<"sub">>}, ClaimSetJterm)}
     end.
+
+jwt(Alg, ClaimSetJterm, Key) ->
+  ClaimSet = base64url:encode(jiffy:encode(ClaimSetJterm)),
+  Header = base64url:encode(jiffy:encode(jwt_header(Alg))),
+  Payload = <<Header/binary, ".", ClaimSet/binary>>,
+  case jwt_sign(Alg, Payload, Key) of
+    alg_not_supported ->
+      alg_not_supported;
+    Signature ->
+      <<Payload/binary, ".", Signature/binary>>
+  end.
+
 
 jwt(Alg, ClaimSetJterm, ExpirationSeconds, Key) ->
     ClaimSet = base64url:encode(jiffy:encode(jwt_add_exp(ClaimSetJterm, ExpirationSeconds))),
