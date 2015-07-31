@@ -7,15 +7,7 @@ dep_base64url   = git git://github.com/inaka/base64url.git   bab9f431693a8888528
 dep_ej          = git git://github.com/seth/ej.git           0332523799fdbab4b7c8e87074dcf57bb15005a6
 
 
-PLT_APPS := inets
-DIALYZER_DIRS := ebin/
-DIALYZER_OPTS := --verbose --statistics -Wrace_conditions
-
 include erlang.mk
 
-ERLC_OPTS += +'{parse_transform, lager_transform}'
 
-CT_OPTS = -erl_args -config rel/sys.config
-
-SHELL_OPTS = -name ${PROJECT}@`hostname` -s sync -s ${PROJECT} -config rel/sys.config
 
