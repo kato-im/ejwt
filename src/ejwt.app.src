@@ -3,13 +3,14 @@
   {description, ""},
   {vsn, git},
   {registered, []},
-  {applications, [
-                  kernel,
-                  stdlib,
-                  crypto,
+  {applications, 
+    [ kernel,
+      stdlib,
+      crypto,
 		  jiffy,
 		  base64url,
 		  ej
-                 ]},
+  ]},
+  {modules, []},
   {env, []}
  ]}.
