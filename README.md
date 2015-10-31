@@ -9,7 +9,8 @@ Install
 
     git clone git@github.com:kato-im/ejwt.git && cd ejwt
     ./rebar get-deps
-    erl
+    ./rebar compile
+    erl -pa ebin -pa deps/jiffy/ebin -pa deps/ej/ebin -pa deps/base64url/ebin
 
 In Erlang shell:
 
