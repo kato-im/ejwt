@@ -71,7 +71,7 @@ parse_jwt_has_expired(ClaimSetJterm) ->
 
 parse_jwt_check_sig(<<"JWT">>, Alg, Header, ClaimSet, Signature, Key) ->
     Payload = <<Header/binary, ".", ClaimSet/binary>>,
-    jwt_sign(Alg, Payload, Key) =:= Signature.
+    jwt_check_signature(Signature, Alg, Payload, Key).
 
 split_jwt_token(Token) ->
     binary:split(Token, [<<".">>], [global]).
@@ -139,9 +139,16 @@ jwt_hs256_iss_sub(Iss, Sub, ExpirationSeconds, Key) ->
         {<<"sub">>, Sub}
     ]}, ExpirationSeconds, Key).
 
+
+jwt_check_signature(Signature, <<"RS256">>, Payload, PublicKey) ->
+    crypto:verify(rsa, sha256, Payload, Signature, PublicKey);
+jwt_check_signature(Signature, <<"HS256">>, Payload, SharedKey) ->
+    Signature =:= jwt_sign(<<"HS256">>, Payload, SharedKey).  
+
+jwt_sign(<<"RS256">>, Payload, Key) ->
+    base64url:encode(crypto:sign(rsa, sha256, Payload, Key));
 jwt_sign(<<"HS256">>, Payload, Key) ->
     base64url:encode(crypto:hmac(sha256, Key, Payload));
-
 jwt_sign(_, _, _) ->
     alg_not_supported.
 
