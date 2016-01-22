@@ -140,13 +140,18 @@ jwt_hs256_iss_sub(Iss, Sub, ExpirationSeconds, Key) ->
     ]}, ExpirationSeconds, Key).
 
 
-jwt_check_signature(Signature, <<"RS256">>, Payload, PublicKey) ->
+jwt_check_signature(Signature, <<"RS256">>, Payload, PublicKey) when
+      is_list(PublicKey) ->
     crypto:verify(rsa, sha256, Payload, Signature, PublicKey);
+jwt_check_signature(Signature, <<"RS256">>, Payload, PublicKey) ->
+    public_key:verify(Payload, sha256, Signature, PublicKey);
 jwt_check_signature(Signature, <<"HS256">>, Payload, SharedKey) ->
     Signature =:= jwt_sign(<<"HS256">>, Payload, SharedKey).  
 
-jwt_sign(<<"RS256">>, Payload, Key) ->
+jwt_sign(<<"RS256">>, Payload, Key) when is_list(Key)->
     base64url:encode(crypto:sign(rsa, sha256, Payload, Key));
+jwt_sign(<<"RS256">>, Payload, Key) ->
+    base64url:encode(public_key:sign(Payload, sha256, Key));
 jwt_sign(<<"HS256">>, Payload, Key) ->
     base64url:encode(crypto:hmac(sha256, Key, Payload));
 jwt_sign(_, _, _) ->
