@@ -5,6 +5,8 @@
 
 -module(ejwt).
 
+-include_lib("public_key/include/public_key.hrl").
+
 -export([pre_parse_jwt/1]).
 -export([parse_jwt/2]).
 -export([parse_jwt_iss_sub/2]).
@@ -150,7 +152,7 @@ jwt_check_signature(Signature, <<"HS256">>, Payload, SharedKey) ->
 
 jwt_sign(<<"RS256">>, Payload, Key) when is_list(Key)->
     base64url:encode(crypto:sign(rsa, sha256, Payload, Key));
-jwt_sign(<<"RS256">>, Payload, Key) ->
+jwt_sign(<<"RS256">>, Payload, #'RSAPrivateKey'{} = Key) ->
     base64url:encode(public_key:sign(Payload, sha256, Key));
 jwt_sign(<<"HS256">>, Payload, Key) ->
     base64url:encode(crypto:hmac(sha256, Key, Payload));
