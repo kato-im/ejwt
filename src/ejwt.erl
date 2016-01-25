@@ -8,6 +8,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -export([pre_parse_jwt/1]).
+-export([get_jwt_header/1]).
 -export([parse_jwt/2]).
 -export([parse_jwt_iss_sub/2]).
 -export([jwt/3, jwt/4]).
@@ -35,6 +36,14 @@ pre_parse_jwt(Token) ->
     case decode_jwt(split_jwt_token(Token)) of
         {_HeaderJterm, ClaimSetJterm, _Signature} ->
             ClaimSetJterm;
+        invalid ->
+            invalid
+    end.
+
+get_jwt_header(Token) ->
+    case decode_jwt(split_jwt_token(Token)) of
+        {HeaderJterm, _ClaimSetJterm, _Signature} ->
+            HeaderJterm;
         invalid ->
             invalid
     end.
