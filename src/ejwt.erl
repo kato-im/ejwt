@@ -10,6 +10,7 @@
 -export([pre_parse_jwt/1]).
 -export([get_jwt_header/1]).
 -export([parse_jwt/2]).
+-export([parse_jwt/3]).
 -export([parse_jwt_iss_sub/2]).
 -export([jwt/3, jwt/4]).
 -export([jwt_hs256_iss_sub/4]).
@@ -49,11 +50,17 @@ get_jwt_header(Token) ->
     end.
 
 parse_jwt(Token, Key) ->
+    parse_jwt(Token, Key, undefined).
+
+parse_jwt(Token, Key, ForceType) ->
     SplitToken = split_jwt_token(Token),
     case decode_jwt(SplitToken) of
         {HeaderJterm, ClaimSetJterm, Signature} ->
             [Header, ClaimSet | _] = SplitToken,
-            Type = ej:get({<<"typ">>}, HeaderJterm),
+            Type = case ej:get({<<"typ">>}, HeaderJterm) of 
+                       undefined -> ForceType;
+                       T -> T
+                   end,
             Alg  = ej:get({<<"alg">>}, HeaderJterm),
             case parse_jwt_check_sig(Type, Alg, Header, ClaimSet, Signature, Key) of
                 false -> invalid;
