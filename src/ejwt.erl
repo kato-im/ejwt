@@ -52,13 +52,13 @@ get_jwt_header(Token) ->
 parse_jwt(Token, Key) ->
     parse_jwt(Token, Key, undefined).
 
-parse_jwt(Token, Key, ForceType) ->
+parse_jwt(Token, Key, FallbackType) ->
     SplitToken = split_jwt_token(Token),
     case decode_jwt(SplitToken) of
         {HeaderJterm, ClaimSetJterm, Signature} ->
             [Header, ClaimSet | _] = SplitToken,
             Type = case ej:get({<<"typ">>}, HeaderJterm) of 
-                       undefined -> ForceType;
+                       undefined -> FallbackType;
                        T -> T
                    end,
             Alg  = ej:get({<<"alg">>}, HeaderJterm),
