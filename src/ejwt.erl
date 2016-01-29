@@ -13,19 +13,18 @@
 -export([parse_jwt/3]).
 -export([parse_jwt_iss_sub/2]).
 -export([jwt/3, jwt/4]).
--export([jwt_hs256_iss_sub/4]).
 
-jiffy_decode_safe(Bin) ->
-    R = try jiffy:decode(Bin) of Jterm0 -> Jterm0 catch Err -> Err end,
+jsx_decode_safe(Bin) ->
+    R = try jsx:decode(Bin,[{label, existing_atom}]) of List0 -> List0 catch Err -> Err end,
     case R of
         {error, _} ->
             invalid;
-        {List} = Jterm ->
+        List when is_list(List) ->
             %% force absence of duplicate keys http://self-issued.info/docs/draft-ietf-oauth-json-web-token.html#Claims
             Keys = [K || {K, _} <- List],
             case length(lists:usort(Keys)) =:= length(Keys) of
                 true ->
-                    Jterm;
+                    maps:from_list(List);
                 false ->
                     invalid
             end;
@@ -35,16 +34,16 @@ jiffy_decode_safe(Bin) ->
 
 pre_parse_jwt(Token) ->
     case decode_jwt(split_jwt_token(Token)) of
-        {_HeaderJterm, ClaimSetJterm, _Signature} ->
-            ClaimSetJterm;
+        #{claims := ClaimSetMap} ->
+            ClaimSetMap;
         invalid ->
             invalid
     end.
 
 get_jwt_header(Token) ->
     case decode_jwt(split_jwt_token(Token)) of
-        {HeaderJterm, _ClaimSetJterm, _Signature} ->
-            HeaderJterm;
+        #{header := HeaderMap } ->
+            HeaderMap;
         invalid ->
             invalid
     end.
@@ -55,31 +54,33 @@ parse_jwt(Token, Key) ->
 parse_jwt(Token, Key, FallbackType) ->
     SplitToken = split_jwt_token(Token),
     case decode_jwt(SplitToken) of
-        {HeaderJterm, ClaimSetJterm, Signature} ->
+        #{header := HeaderMap, 
+          claims := ClaimSetMap, 
+          signature := Signature} ->
             [Header, ClaimSet | _] = SplitToken,
-            Type = case ej:get({<<"typ">>}, HeaderJterm) of 
+            Type = case maps:get(typ, HeaderMap, undefined) of 
                        undefined -> FallbackType;
                        T -> T
                    end,
-            Alg  = ej:get({<<"alg">>}, HeaderJterm),
+            Alg  = maps:get(alg, HeaderMap, undefined),
             case parse_jwt_check_sig(Type, Alg, Header, ClaimSet, Signature, Key) of
                 false -> invalid;
                 true ->
-                    case parse_jwt_has_expired(ClaimSetJterm) of
+                    case parse_jwt_has_expired(ClaimSetMap) of
                         true  -> expired;
-                        false -> ClaimSetJterm
+                        false -> ClaimSetMap
                     end
             end;
         invalid -> invalid
     end.
 
-parse_jwt_has_expired(ClaimSetJterm) ->
-    Expiry = ej:get({<<"exp">>}, ClaimSetJterm, none),
+parse_jwt_has_expired(ClaimSetMap) ->
+    Expiry  = maps:get(exp, ClaimSetMap, none),
     case Expiry of
         none ->
             false;
         _ ->
-            case (ej:get({<<"exp">>}, ClaimSetJterm) - epoch()) of
+            case (Expiry - epoch()) of
                 DeltaSecs when DeltaSecs > 0 ->
                     false;
                 _ ->
@@ -95,11 +96,14 @@ split_jwt_token(Token) ->
     binary:split(Token, [<<".">>], [global]).
 
 decode_jwt([Header, ClaimSet, Signature]) ->
-    [HeaderJterm, ClaimSetJterm] =
-        Decoded = [jiffy_decode_safe(base64url:decode(X)) || X <- [Header, ClaimSet]],
+    [HeaderMap, ClaimSetMap] =
+        Decoded = [jsx_decode_safe(base64url:decode(X)) || X <- [Header, ClaimSet]],
     case lists:any(fun(E) -> E =:= invalid end, Decoded) of
         true  -> invalid;
-        false -> {HeaderJterm, ClaimSetJterm, Signature}
+        false -> #{
+          header => HeaderMap, 
+          claims => ClaimSetMap, 
+          signature => Signature}
     end;
 decode_jwt(_) ->
     invalid.
@@ -110,13 +114,13 @@ parse_jwt_iss_sub(Token, Key) ->
             invalid;
         expired ->
             expired;
-        ClaimSetJterm ->
-            {ej:get({<<"iss">>}, ClaimSetJterm), ej:get({<<"sub">>}, ClaimSetJterm)}
+        #{iss := Issuer, sub := Subject} ->
+            {Issuer, Subject}
     end.
 
-jwt(Alg, ClaimSetJterm, Key) ->
-  ClaimSet = base64url:encode(jiffy:encode(ClaimSetJterm)),
-  Header = base64url:encode(jiffy:encode(jwt_header(Alg))),
+jwt(Alg, ClaimSetMap, Key) ->
+  ClaimSet = base64url:encode(jsx:encode(ClaimSetMap)),
+  Header = base64url:encode(jsx:encode(jwt_header(Alg))),
   Payload = <<Header/binary, ".", ClaimSet/binary>>,
   case jwt_sign(Alg, Payload, Key) of
     alg_not_supported ->
@@ -126,9 +130,9 @@ jwt(Alg, ClaimSetJterm, Key) ->
   end.
 
 
-jwt(Alg, ClaimSetJterm, ExpirationSeconds, Key) ->
-    ClaimSet = base64url:encode(jiffy:encode(jwt_add_exp(ClaimSetJterm, ExpirationSeconds))),
-    Header = base64url:encode(jiffy:encode(jwt_header(Alg))),
+jwt(Alg, ClaimSetMap, ExpirationSeconds, Key) ->
+    ClaimSet = base64url:encode(jsx:encode(jwt_add_exp(ClaimSetMap, ExpirationSeconds))),
+    Header = base64url:encode(jsx:encode(jwt_header(Alg))),
     Payload = <<Header/binary, ".", ClaimSet/binary>>,
     case jwt_sign(Alg, Payload, Key) of
         alg_not_supported ->
@@ -137,8 +141,7 @@ jwt(Alg, ClaimSetJterm, ExpirationSeconds, Key) ->
             <<Payload/binary, ".", Signature/binary>>
     end.
 
-jwt_add_exp(ClaimSetJterm, ExpirationSeconds) ->
-    {ClaimsSet} = ClaimSetJterm,
+jwt_add_exp(ClaimSetMap, ExpirationSeconds) ->
     Expiration = case ExpirationSeconds of
         {hourly, ExpirationSeconds0} ->
             Ts = epoch(),
@@ -149,13 +152,7 @@ jwt_add_exp(ClaimSetJterm, ExpirationSeconds) ->
         _ ->
             epoch() + ExpirationSeconds
     end,        
-    {[{<<"exp">>, Expiration} | ClaimsSet]}.
-
-jwt_hs256_iss_sub(Iss, Sub, ExpirationSeconds, Key) ->
-    jwt(<<"HS256">>, {[
-        {<<"iss">>, Iss},
-        {<<"sub">>, Sub}
-    ]}, ExpirationSeconds, Key).
+    maps:put(exp,Expiration,ClaimSetMap).
 
 
 jwt_check_signature(EncSignature, <<"RS256">>, Payload, #'RSAPublicKey'{} =
@@ -178,10 +175,7 @@ jwt_sign(_, _, _) ->
     alg_not_supported.
 
 jwt_header(Alg) ->
-    {[
-        {<<"alg">>, Alg},
-        {<<"typ">>, <<"JWT">>}
-    ]}.
+    #{ alg => Alg, typ => <<"JWT">>}.
 
 epoch() ->
     calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(os:timestamp())) - 719528 * 24 * 3600.
