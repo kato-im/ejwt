@@ -2,7 +2,7 @@
  [
   {description, ""},
   {vsn, "rolling"},
-  {id, git},
+  {id, "git"},
   {registered, []},
   {applications, [
                   kernel,
