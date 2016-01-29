@@ -1,11 +1,5 @@
-all: deps compile
+PROJECT = ejwt 
 
-compile:
-	./rebar compile
-
-deps:
-	./rebar get-deps
-
-clean:
-	./rebar clean
-	rm -fr ebin
+DEPS = jsx base64url
+dep_base64url = git https://github.com/bwegh/base64url.git master
+include erlang.mk
