@@ -34,8 +34,8 @@ jsx_decode_safe(Bin) ->
 
 pre_parse_jwt(Token) ->
     case decode_jwt(split_jwt_token(Token)) of
-        #{claims := ClaimSetMap} ->
-            ClaimSetMap;
+        #{} = JwtMap ->
+            JwtMap;
         invalid ->
             invalid
     end.
