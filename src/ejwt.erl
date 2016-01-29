@@ -15,7 +15,7 @@
 -export([jwt/3, jwt/4]).
 
 jsx_decode_safe(Bin) ->
-    R = try jsx:decode(Bin,[{label, existing_atom}]) of List0 -> List0 catch Err -> Err end,
+    R = try jsx:decode(Bin,[{labels, attempt_atom}]) of List0 -> List0 catch Err -> Err end,
     case R of
         {error, _} ->
             invalid;
