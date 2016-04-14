@@ -7,10 +7,10 @@ The library was enhanced with tests, stylechecking and the RS256 algorithm.
 ## Smoke test example
 
 Compilation
-
+```shell
    make
    make tests
-
+```
 
 In Erlang shell:
 
