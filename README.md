@@ -11,6 +11,7 @@ Compilation
    make
    make tests
 
+
 In Erlang shell:
 
     %% Create JWT token
