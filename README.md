@@ -22,7 +22,7 @@ In Erlang shell:
         {user_name, <<"Bob">>}
     ]}.
     ExpirationSeconds = 86400,
-    Token = ejwt:jwt(<<"HS256">>, Claims, ExpirationSeconds, Key).
+    Token = ejwt:jwt(hs256, Claims, ExpirationSeconds, Key).
 
     %% Parse JWT token
     ejwt:parse_jwt(Token, Key).
