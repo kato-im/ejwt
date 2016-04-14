@@ -11,7 +11,6 @@
 -export([get_jwt_header/1]).
 -export([parse_jwt/2]).
 -export([parse_jwt/3]).
--export([parse_jwt_iss_sub/2]).
 -export([jwt/3, jwt/4]).
 
 jsx_decode_safe(Bin) ->
@@ -112,25 +111,12 @@ decode_jwt([Header, ClaimSet, Signature]) ->
 decode_jwt(_) ->
     invalid.
 
-parse_jwt_iss_sub(Token, Key) ->
-    case parse_jwt(Token, Key) of
-        invalid ->
-            invalid;
-        expired ->
-            expired;
-        #{iss := Issuer, sub := Subject} ->
-            {Issuer, Subject}
-    end.
+jwt(Alg, ClaimSetMap, ExpirationSeconds, Key) ->
+    ClaimSetExpMap = jwt_add_exp(ClaimSetMap, ExpirationSeconds),
+    jwt(Alg,ClaimSetExpMap, Key).
 
 jwt(Alg, ClaimSetMap, Key) ->
     ClaimSet = base64url:encode(jsx:encode(ClaimSetMap)),
-    Header = base64url:encode(jsx:encode(jwt_header(Alg))),
-    Payload = <<Header/binary, ".", ClaimSet/binary>>,
-    jwt_return_signed(Alg, Payload, Key).
-
-jwt(Alg, ClaimSetMap, ExpirationSeconds, Key) ->
-    ClaimSet = base64url:encode(jsx:encode(jwt_add_exp(ClaimSetMap,
-                                                       ExpirationSeconds))),
     Header = base64url:encode(jsx:encode(jwt_header(Alg))),
     Payload = <<Header/binary, ".", ClaimSet/binary>>,
     jwt_return_signed(Alg, Payload, Key).
