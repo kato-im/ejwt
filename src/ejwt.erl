@@ -15,12 +15,16 @@
 -export([jwt/3, jwt/4]).
 
 jsx_decode_safe(Bin) ->
-    R = try jsx:decode(Bin,[{labels, attempt_atom}]) of List0 -> List0 catch Err -> Err end,
+    R = try jsx:decode(Bin, [{labels, attempt_atom}])
+        of List0 -> List0
+        catch Err -> Err
+        end,
     case R of
         {error, _} ->
             invalid;
         List when is_list(List) ->
-            %% force absence of duplicate keys http://self-issued.info/docs/draft-ietf-oauth-json-web-token.html#Claims
+            %% force absence of duplicate keys
+            %% http://self-issued.info/docs/draft-ietf-oauth-json-web-token.html
             Keys = [K || {K, _} <- List],
             case length(lists:usort(Keys)) =:= length(Keys) of
                 true ->
@@ -54,22 +58,22 @@ parse_jwt(Token, Key) ->
 parse_jwt(Token, Key, FallbackType) ->
     SplitToken = split_jwt_token(Token),
     case decode_jwt(SplitToken) of
-        #{header := HeaderMap, 
-          claims := ClaimSetMap, 
+        #{header := HeaderMap,
+          claims := ClaimSetMap,
           signature := Signature} ->
             [Header, ClaimSet | _] = SplitToken,
-            Type = case maps:get(typ, HeaderMap, undefined) of 
+            Type = case maps:get(typ, HeaderMap, undefined) of
                        undefined -> FallbackType;
                        T -> T
                    end,
             Alg  = maps:get(alg, HeaderMap, undefined),
-            case parse_jwt_check_sig(Type, Alg, Header, ClaimSet, Signature, Key) of
-                false -> invalid;
-                true ->
-                    case parse_jwt_has_expired(ClaimSetMap) of
-                        true  -> expired;
-                        false -> ClaimSetMap
-                    end
+            SignatureOk = parse_jwt_check_sig(Type, Alg, Header,
+                                              ClaimSet, Signature, Key),
+            Expired = parse_jwt_has_expired(ClaimSetMap),
+            case {SignatureOk, Expired} of
+                {true, false} -> ClaimSetMap;
+                {false, _} -> invalid;
+                {true, true} -> expired
             end;
         invalid -> invalid
     end.
@@ -97,12 +101,12 @@ split_jwt_token(Token) ->
 
 decode_jwt([Header, ClaimSet, Signature]) ->
     [HeaderMap, ClaimSetMap] =
-        Decoded = [jsx_decode_safe(base64url:decode(X)) || X <- [Header, ClaimSet]],
+    Decoded = [jsx_decode_safe(base64url:decode(X)) || X <- [Header, ClaimSet]],
     case lists:any(fun(E) -> E =:= invalid end, Decoded) of
         true  -> invalid;
         false -> #{
-          header => HeaderMap, 
-          claims => ClaimSetMap, 
+          header => HeaderMap,
+          claims => ClaimSetMap,
           signature => Signature}
     end;
 decode_jwt(_) ->
@@ -119,21 +123,19 @@ parse_jwt_iss_sub(Token, Key) ->
     end.
 
 jwt(Alg, ClaimSetMap, Key) ->
-  ClaimSet = base64url:encode(jsx:encode(ClaimSetMap)),
-  Header = base64url:encode(jsx:encode(jwt_header(Alg))),
-  Payload = <<Header/binary, ".", ClaimSet/binary>>,
-  case jwt_sign(Alg, Payload, Key) of
-    alg_not_supported ->
-      alg_not_supported;
-    Signature ->
-      <<Payload/binary, ".", Signature/binary>>
-  end.
-
-
-jwt(Alg, ClaimSetMap, ExpirationSeconds, Key) ->
-    ClaimSet = base64url:encode(jsx:encode(jwt_add_exp(ClaimSetMap, ExpirationSeconds))),
+    ClaimSet = base64url:encode(jsx:encode(ClaimSetMap)),
     Header = base64url:encode(jsx:encode(jwt_header(Alg))),
     Payload = <<Header/binary, ".", ClaimSet/binary>>,
+    jwt_return_signed(Alg, Payload, Key).
+
+jwt(Alg, ClaimSetMap, ExpirationSeconds, Key) ->
+    ClaimSet = base64url:encode(jsx:encode(jwt_add_exp(ClaimSetMap,
+                                                       ExpirationSeconds))),
+    Header = base64url:encode(jsx:encode(jwt_header(Alg))),
+    Payload = <<Header/binary, ".", ClaimSet/binary>>,
+    jwt_return_signed(Alg, Payload, Key).
+
+jwt_return_signed(Alg, Payload, Key) ->
     case jwt_sign(Alg, Payload, Key) of
         alg_not_supported ->
             alg_not_supported;
@@ -141,29 +143,31 @@ jwt(Alg, ClaimSetMap, ExpirationSeconds, Key) ->
             <<Payload/binary, ".", Signature/binary>>
     end.
 
+
 jwt_add_exp(ClaimSetMap, ExpirationSeconds) ->
     Expiration = case ExpirationSeconds of
-        {hourly, ExpirationSeconds0} ->
-            Ts = epoch(),
-            (Ts - (Ts rem 3600)) + ExpirationSeconds0;
-        {daily, ExpirationSeconds0} ->
-            Ts = epoch(),
-            (Ts - (Ts rem (24*3600))) + ExpirationSeconds0;
-        _ ->
-            epoch() + ExpirationSeconds
-    end,        
-    maps:put(exp,Expiration,ClaimSetMap).
+                     {hourly, ExpirationSeconds0} ->
+                         Ts = epoch(),
+                         (Ts - (Ts rem 3600)) + ExpirationSeconds0;
+                     {daily, ExpirationSeconds0} ->
+                         Ts = epoch(),
+                         (Ts - (Ts rem (24*3600))) + ExpirationSeconds0;
+                     _ ->
+                         epoch() + ExpirationSeconds
+                 end,
+    maps:put(exp, Expiration, ClaimSetMap).
 
 
 jwt_check_signature(EncSignature, <<"RS256">>, Payload, #'RSAPublicKey'{} =
                     PublicKey) ->
     Signature = base64url:decode(EncSignature),
     public_key:verify(Payload, sha256, Signature, PublicKey);
-jwt_check_signature(EncSignature, <<"RS256">>, Payload, PublicKey) when is_list(PublicKey) ->
+jwt_check_signature(EncSignature, <<"RS256">>, Payload, PublicKey)
+  when is_list(PublicKey) ->
     Signature = base64url:decode(EncSignature),
     crypto:verify(rsa, sha256, Payload, Signature, PublicKey);
 jwt_check_signature(Signature, <<"HS256">>, Payload, SharedKey) ->
-    Signature =:= jwt_sign(<<"HS256">>, Payload, SharedKey).  
+    Signature =:= jwt_sign(<<"HS256">>, Payload, SharedKey).
 
 jwt_sign(<<"RS256">>, Payload, Key) when is_list(Key)->
     base64url:encode(crypto:sign(rsa, sha256, Payload, Key));
@@ -178,4 +182,5 @@ jwt_header(Alg) ->
     #{ alg => Alg, typ => <<"JWT">>}.
 
 epoch() ->
-    calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(os:timestamp())) - 719528 * 24 * 3600.
+    UniversalNow = calendar:now_to_universal_time(os:timestamp()),
+    calendar:datetime_to_gregorian_seconds(UniversalNow) - 719528 * 24 * 3600.
