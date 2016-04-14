@@ -41,8 +41,9 @@ rsa256_roundtrip_test() ->
                <<"azp">> => <<"thesameone">>,
                <<"nonce">> => <<"WwiTGOVNCSTn6tXFp8iW_wsugAp1AGm-81VJ9n4oy7Bauq0xTKg">>},
 
-    JWT = ejwt:jwt(<<"RS256">>,Claims, 10, ?RSA_PRIVATE_KEY),
+    JWT = ejwt:jwt(rs256,Claims, 10, ?RSA_PRIVATE_KEY),
     ClaimsWithExp = ejwt:parse_jwt(JWT,?RSA_PUBLIC_KEY),
+    true = is_map(ClaimsWithExp),
     ClaimsWithExp = maps:put(exp,maps:get(exp,ClaimsWithExp),Claims),
     ok.
 
@@ -55,7 +56,8 @@ hs256_test() ->
                <<"nonce">> => <<"WwiTGOVNCSTn6tXFp8iW_wsugAp1AGm-81VJ9n4oy7Bauq0xTKg">>},
     Key = <<"my secret key">>,
 
-    JWT = ejwt:jwt(<<"HS256">>,Claims, 10, Key),
+    JWT = ejwt:jwt(hs256,Claims, 10, Key),
     ClaimsWithExp = ejwt:parse_jwt(JWT,Key),
+    true = is_map(ClaimsWithExp),
     ClaimsWithExp = maps:put(exp,maps:get(exp,ClaimsWithExp),Claims),
     ok.
