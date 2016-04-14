@@ -113,7 +113,7 @@ decode_jwt(_) ->
 
 jwt(Alg, ClaimSetMap, ExpirationSeconds, Key) ->
     ClaimSetExpMap = jwt_add_exp(ClaimSetMap, ExpirationSeconds),
-    jwt(Alg,ClaimSetExpMap, Key).
+    jwt(Alg, ClaimSetExpMap, Key).
 
 jwt(Alg, ClaimSetMap, Key) ->
     ClaimSet = base64url:encode(jsx:encode(ClaimSetMap)),
