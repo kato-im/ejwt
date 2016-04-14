@@ -61,3 +61,15 @@ hs256_test() ->
     true = is_map(ClaimsWithExp),
     ClaimsWithExp = maps:put(exp,maps:get(exp,ClaimsWithExp),Claims),
     ok.
+
+
+unsupported_alg_test() ->
+    Claims = #{exp => 1460632831, iss => <<"me">>,
+               sub => <<"789049">>,
+               <<"aud">> => <<"someone">>,
+               <<"azp">> => <<"thesameone">>,
+               <<"nonce">> => <<"WwiTGOVNCSTn6tXFp8iW_wsugAp1AGm-81VJ9n4oy7Bauq0xTKg">>},
+    Key = <<"my secret key">>,
+
+    alg_not_supported = ejwt:jwt(xy21,Claims, 10, Key),
+    ok.

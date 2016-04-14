@@ -167,7 +167,9 @@ jwt_sign(_, _, _) ->
 jwt_header(rs256) ->
     #{ alg => <<"RS256">>, typ => <<"JWT">>};
 jwt_header(hs256) ->
-    #{ alg => <<"HS256">>, typ => <<"JWT">>}.
+    #{ alg => <<"HS256">>, typ => <<"JWT">>};
+jwt_header(_) ->
+    #{ typ => <<"JWT">>}.
 
 epoch() ->
     UniversalNow = calendar:now_to_universal_time(os:timestamp()),
