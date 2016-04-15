@@ -1,15 +1,16 @@
 Erlang JWT Library
 =
 
-JWT is a simple authorization token [format](http://self-issued.info/docs/draft-ietf-oauth-json-web-token.html) based on JSON. [Peter Hizalev](http://twitter.com/petrohi) wrote this library at [Kato.im](http://kato.im). We're open-sourcing it in case someone else needs to create or parse JWT tokens with Erlang.
+JWT is a simple authorization token [format](http://self-issued.info/docs/draft-ietf-oauth-json-web-token.html) based on JSON. [Peter Hizalev](http://twitter.com/petrohi) started this library at Kato.im and put it under open-source.
+The library was enhanced with tests, stylechecking and the RS256 algorithm.
 
 ## Smoke test example
 
-Install
-
-    git clone git@github.com:kato-im/ejwt.git && cd ejwt
-    ./rebar get-deps
-    erl
+Compilation
+```shell
+   make
+   make tests
+```
 
 In Erlang shell:
 
@@ -21,7 +22,7 @@ In Erlang shell:
         {user_name, <<"Bob">>}
     ]}.
     ExpirationSeconds = 86400,
-    Token = ejwt:jwt(<<"HS256">>, Claims, ExpirationSeconds, Key).
+    Token = ejwt:jwt(hs256, Claims, ExpirationSeconds, Key).
 
     %% Parse JWT token
     ejwt:parse_jwt(Token, Key).
