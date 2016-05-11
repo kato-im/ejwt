@@ -1,11 +1,22 @@
-all: deps compile
+REBAR = $(shell pwd)/rebar3
+APP=oidcc
 
-compile:
-	./rebar compile
+.PHONY: all ct test clean elvis compile 
 
-deps:
-	./rebar get-deps
+all: compile
 
 clean:
-	./rebar clean
-	rm -fr ebin
+	$(REBAR) clean
+
+eunit:
+	$(REBAR) eunit
+
+ct:
+	$(REBAR) ct
+
+elvis:
+	$(REBAR) lint
+
+compile:
+	$(REBAR) compile
+
