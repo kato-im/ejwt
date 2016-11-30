@@ -1,15 +1,16 @@
 {application, ejwt,
  [
   {description, ""},
-  {vsn, git},
+  {vsn, "0.0.1"},
   {registered, []},
-  {applications, [
-                  kernel,
-                  stdlib,
-                  crypto,
+  {applications, 
+    [ kernel,
+      stdlib,
+      crypto,
 		  jiffy,
 		  base64url,
 		  ej
-                 ]},
+  ]},
+  {modules, []},
   {env, []}
  ]}.
