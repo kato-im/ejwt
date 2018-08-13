@@ -8,7 +8,7 @@
 -export([pre_parse_jwt/1]).
 -export([parse_jwt/2]).
 -export([parse_jwt_iss_sub/2]).
--export([jwt/3, jwt/4]).
+-export([jwt/3, jwt/4, jwt/5]).
 -export([jwt_hs256_iss_sub/4]).
 
 jiffy_decode_safe(Bin) ->
@@ -97,20 +97,15 @@ parse_jwt_iss_sub(Token, Key) ->
     end.
 
 jwt(Alg, ClaimSetJterm, Key) ->
-  ClaimSet = base64url:encode(jiffy:encode(ClaimSetJterm)),
-  Header = base64url:encode(jiffy:encode(jwt_header(Alg))),
-  Payload = <<Header/binary, ".", ClaimSet/binary>>,
-  case jwt_sign(Alg, Payload, Key) of
-    alg_not_supported ->
-      alg_not_supported;
-    Signature ->
-      <<Payload/binary, ".", Signature/binary>>
-  end.
-
+    jwt(Alg, ClaimSetJterm, undefined, Key).
 
 jwt(Alg, ClaimSetJterm, ExpirationSeconds, Key) ->
-    ClaimSet = base64url:encode(jiffy:encode(jwt_add_exp(ClaimSetJterm, ExpirationSeconds))),
-    Header = base64url:encode(jiffy:encode(jwt_header(Alg))),
+    jwt(Alg, ClaimSetJterm, ExpirationSeconds, [], Key).
+
+jwt(Alg, ClaimSetJterm, ExpirationSeconds, Extra_Headers, Key) ->
+    Effective_Claims = apply_expiration(ExpirationSeconds, ClaimSetJterm),
+    ClaimSet = base64url:encode(jiffy:encode(Effective_Claims)),
+    Header = base64url:encode(jiffy:encode(jwt_header(Alg, Extra_Headers))),
     Payload = <<Header/binary, ".", ClaimSet/binary>>,
     case jwt_sign(Alg, Payload, Key) of
         alg_not_supported ->
@@ -118,6 +113,9 @@ jwt(Alg, ClaimSetJterm, ExpirationSeconds, Key) ->
         Signature ->
             <<Payload/binary, ".", Signature/binary>>
     end.
+
+apply_expiration(undefined,         ClaimSetJterm) -> ClaimSetJterm;
+apply_expiration(ExpirationSeconds, ClaimSetJterm) -> jwt_add_exp(ClaimSetJterm, ExpirationSeconds).
 
 jwt_add_exp(ClaimSetJterm, ExpirationSeconds) ->
     {ClaimsSet} = ClaimSetJterm,
@@ -145,10 +143,10 @@ jwt_sign(<<"HS256">>, Payload, Key) ->
 jwt_sign(_, _, _) ->
     alg_not_supported.
 
-jwt_header(Alg) ->
+jwt_header(Alg, Extra_Headers) ->
     {[
         {<<"alg">>, Alg},
-        {<<"typ">>, <<"JWT">>}
+        {<<"typ">>, <<"JWT">>} | Extra_Headers
     ]}.
 
 epoch() ->
